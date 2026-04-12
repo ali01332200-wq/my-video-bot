@@ -74,16 +74,13 @@ def callback(call):
 
     try:
         ydl_opts = {
-            'format': 'bestvideo+bestaudio/best',
-            'outtmpl': file_name,
-            'noplaylist': True,
-            'quiet': True,
-            'merge_output_format': 'mp4',
-            'socket_timeout': 30,
-            'retries': 3,
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0'
-            }
+                   'format': 'best',
+                   'outtmpl': file_name,
+                   'noplaylist': True,
+                   'quiet': True,
+                   'socket_timeout': 30,
+                   'retries': 3
+                   }
         }
 
         bot.send_message(chat_id, "⚡ Processing...")
