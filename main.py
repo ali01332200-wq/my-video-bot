@@ -6,67 +6,62 @@ from telebot import types
 TOKEN = os.getenv("8675679641:AAGvnIc2t767rcS7Cj6m49MmVDgTWSJVfC0")
 bot = telebot.TeleBot(TOKEN)
 
-user_url = {}
+user_data = {}
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.reply_to(message, "Send me a video link 🎥")
+    bot.reply_to(message, "Send a video link 🎥")
 
-# URL receive
 @bot.message_handler(func=lambda message: True)
 def get_url(message):
+    chat_id = message.chat.id
     url = message.text.strip()
 
-    user_url[message.chat.id] = url
+    user_data[chat_id] = url
 
-    # Confirm buttons
     markup = types.InlineKeyboardMarkup()
-    yes = types.InlineKeyboardButton("✔ Download", callback_data="yes")
-    no = types.InlineKeyboardButton("❌ Cancel", callback_data="no")
-
-    markup.add(yes, no)
-
-    bot.send_message(
-        message.chat.id,
-        f"🔗 URL received:\n{url}\n\nDo you want to download?",
-        reply_markup=markup
+    markup.add(
+        types.InlineKeyboardButton("✔ Yes", callback_data="yes"),
+        types.InlineKeyboardButton("❌ No", callback_data="no")
     )
 
-# Button click handler
+    bot.send_message(chat_id, f"Confirm download?\n{url}", reply_markup=markup)
+
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
     chat_id = call.message.chat.id
 
     if call.data == "no":
-        bot.send_message(chat_id, "❌ Cancelled")
+        bot.send_message(chat_id, "Cancelled ❌")
         return
 
-    if call.data == "yes":
-        url = user_url.get(chat_id)
+    url = user_data.get(chat_id)
 
-        if not url:
-            bot.send_message(chat_id, "No URL found ❌")
-            return
+    if not url:
+        bot.send_message(chat_id, "No URL found ❌")
+        return
 
-        bot.send_message(chat_id, "Downloading... ⏳")
+    file_name = f"video_{chat_id}.mp4"
 
-        ydl_opts = {
-            'format': 'best',
-            'outtmpl': 'video.mp4',
-            'noplaylist': True,
-            'quiet': True
-        }
+    bot.send_message(chat_id, "Downloading... ⏳")
 
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
+    ydl_opts = {
+        'format': 'best',
+        'outtmpl': file_name,
+        'noplaylist': True,
+        'quiet': True
+    }
 
-            with open("video.mp4", "rb") as video:
-                bot.send_video(chat_id, video)
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
 
-            os.remove("video.mp4")
+        with open(file_name, "rb") as video:
+            bot.send_video(chat_id, video)
 
-        except Exception as e:
-            bot.send_message(chat_id, "Download failed ❌")
+        os.remove(file_name)
 
-bot.infinity_polling()
+    except Exception as e:
+        bot.send_message(chat_id, "Download failed ❌")
+
+bot.infinity_polling(timeout=60, long_polling_timeout=60)
