@@ -36,6 +36,9 @@ def get_url(message):
     chat_id = message.chat.id
     url = message.text.strip()
 
+    # FIX: clean youtube url
+    url = url.split("&")[0]
+
     if "http" not in url:
         bot.reply_to(message, "😂 এটা valid link না ভাই!")
         return
@@ -71,11 +74,16 @@ def callback(call):
 
     try:
         ydl_opts = {
-            'format': 'best',
+            'format': 'bestvideo+bestaudio/best',
             'outtmpl': file_name,
             'noplaylist': True,
             'quiet': True,
-            'merge_output_format': 'mp4'
+            'merge_output_format': 'mp4',
+            'socket_timeout': 30,
+            'retries': 3,
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0'
+            }
         }
 
         bot.edit_message_text("📥 Download হচ্ছে...", chat_id, status.message_id)
@@ -92,8 +100,9 @@ def callback(call):
 
         bot.send_message(chat_id, "✅ Done! Enjoy 🎉")
 
-    except:
-        bot.send_message(chat_id, "❌ Download failed")
+    except Exception as e:
+        print(e)
+        bot.send_message(chat_id, "❌ ভিডিও ডাউনলোড করা যাচ্ছে না। অন্য লিংক চেষ্টা করো।")
 
 # ---------- RUN ----------
 bot.infinity_polling(timeout=60, long_polling_timeout=60, skip_pending=True)
