@@ -31,12 +31,14 @@ def get_url(message):
 def callback(call):
     chat_id = call.message.chat.id
 
+    # গুরুত্বপূর্ণ: callback answer দিতে হবে
+    bot.answer_callback_query(call.id)
+
     if call.data == "no":
         bot.send_message(chat_id, "Cancelled ❌")
         return
 
     url = user_data.get(chat_id)
-
     if not url:
         bot.send_message(chat_id, "No URL found ❌")
         return
@@ -62,6 +64,6 @@ def callback(call):
         os.remove(file_name)
 
     except Exception as e:
-        bot.send_message(chat_id, "Download failed ❌")
+        bot.send_message(chat_id, f"Download failed ❌\n{e}")
 
 bot.infinity_polling(timeout=60, long_polling_timeout=60)
