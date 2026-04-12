@@ -64,7 +64,6 @@ def callback(call):
         bot.send_message(chat_id, "❌ Link পাওয়া যায়নি")
         return
 
-    # ---------- YOUTUBE CHECK ----------
     is_youtube = "youtube.com" in url or "youtu.be" in url
 
     # ---------- CONTINUE ----------
@@ -80,34 +79,39 @@ def callback(call):
 
             bot.send_message(chat_id, "🎥 YouTube detected!\nQuality select করো:", reply_markup=markup)
         else:
-            download_video(chat_id, url, "best")
+            download(chat_id, url, "best")
 
-    # ---------- QUALITY DOWNLOAD ----------
+    # ---------- QUALITY ----------
     if call.data.startswith("q_"):
         quality = call.data.split("_")[1]
-        download_video(chat_id, url, quality)
+        download(chat_id, url, quality)
 
 # ---------- DOWNLOAD FUNCTION ----------
-def download_video(chat_id, url, quality):
+def download(chat_id, url, quality):
     file_name = f"video_{chat_id}.mp4"
 
-    status = bot.send_message(chat_id, "📡 Download শুরু হচ্ছে...")
+    status = bot.send_message(chat_id, "📡 Processing...")
+
+    # ---------- FORMAT FIX ----------
+    if quality == "best":
+        format_option = "bestvideo+bestaudio/best"
+    elif quality == "360":
+        format_option = "bestvideo[height<=360]+bestaudio/best[height<=360]"
+    elif quality == "720":
+        format_option = "bestvideo[height<=720]+bestaudio/best[height<=720]"
+    elif quality == "1080":
+        format_option = "bestvideo[height<=1080]+bestaudio/best[height<=1080]"
+    else:
+        format_option = "best"
 
     try:
-        if quality == "best":
-            ydl_opts = {
-                'format': 'best',
-                'outtmpl': file_name,
-                'noplaylist': True,
-                'quiet': True
-            }
-        else:
-            ydl_opts = {
-                'format': f'best[height<={quality}]',
-                'outtmpl': file_name,
-                'noplaylist': True,
-                'quiet': True
-            }
+        ydl_opts = {
+            'format': format_option,
+            'outtmpl': file_name,
+            'noplaylist': True,
+            'quiet': True,
+            'merge_output_format': 'mp4'
+        }
 
         bot.edit_message_text("📥 Download হচ্ছে...", chat_id, status.message_id)
 
