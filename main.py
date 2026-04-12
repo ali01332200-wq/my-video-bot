@@ -1,117 +1,114 @@
 import telebot
 import yt_dlp
 import os
-import time
 from telebot import types
 
-TOKEN = os.getenv("BOT_TOKEN")
-
-if not TOKEN:
-    print("BOT_TOKEN missing")
-    exit()
-
+TOKEN = os.getenv("BOT_TOKEN")  # Render / Railway / VPS এ ENV সেট করবে
 bot = telebot.TeleBot(TOKEN)
+
 user_data = {}
 
-# ---------------- START ----------------
+# ================= START =================
 @bot.message_handler(commands=['start'])
 def start(message):
-    name = message.from_user.first_name
-    bot.send_message(
-        message.chat.id,
-        f"👋 Hello {name}!\n\nSend any video link:\nYouTube / Instagram / Facebook / TikTok"
+    bot.reply_to(
+        message,
+        f"👋 Welcome {message.from_user.first_name}!\n\nSend a video link (YouTube / Facebook / Instagram)"
     )
 
-# ---------------- GET URL ----------------
+# ================= GET URL =================
 @bot.message_handler(func=lambda message: True)
 def get_url(message):
     chat_id = message.chat.id
     url = message.text.strip()
 
-    if "http" not in url:
-        bot.reply_to(message, "❌ Valid link পাঠাও")
+    if not url.startswith("http"):
+        bot.reply_to(message, "❌ Please send a valid video link.")
         return
 
     user_data[chat_id] = url
 
-    # YouTube হলে quality option দেখাবে
-    if "youtube.com" in url or "youtu.be" in url:
-        markup = types.InlineKeyboardMarkup()
-        markup.add(
-            types.InlineKeyboardButton("360p", callback_data="360"),
-            types.InlineKeyboardButton("720p", callback_data="720"),
-            types.InlineKeyboardButton("Best", callback_data="best")
-        )
-        bot.send_message(chat_id, "🎥 Select Quality:", reply_markup=markup)
-    else:
-        markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton("✔ Download", callback_data="download"))
-        bot.send_message(chat_id, "✔ Download শুরু করবো?", reply_markup=markup)
+    markup = types.InlineKeyboardMarkup()
+    markup.add(
+        types.InlineKeyboardButton("⬇ Download", callback_data="download"),
+        types.InlineKeyboardButton("❌ Cancel", callback_data="cancel")
+    )
 
-# ---------------- CALLBACK ----------------
+    bot.send_message(
+        chat_id,
+        f"📥 Confirm download?\n\n{url}",
+        reply_markup=markup
+    )
+
+# ================= CALLBACK =================
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
     chat_id = call.message.chat.id
+    message_id = call.message.message_id
+
+    if call.data == "cancel":
+        bot.edit_message_text(
+            "❌ Cancelled.",
+            chat_id,
+            message_id
+        )
+        return
+
     url = user_data.get(chat_id)
 
     if not url:
-        bot.send_message(chat_id, "❌ URL missing")
+        bot.edit_message_text(
+            "❌ No URL found.",
+            chat_id,
+            message_id
+        )
         return
-
-    quality = call.data
-
-    # format setup
-    if quality == "360":
-        format_option = "best[height<=360]"
-    elif quality == "720":
-        format_option = "best[height<=720]"
-    else:
-        format_option = "best"
 
     file_name = f"video_{chat_id}.mp4"
 
-    status = bot.send_message(chat_id, "📥 Download শুরু হচ্ছে...")
+    # 🔄 Edit message instead of sending new
+    bot.edit_message_text(
+        "⏳ Downloading...",
+        chat_id,
+        message_id
+    )
+
+    ydl_opts = {
+        'format': 'best',
+        'outtmpl': file_name,
+        'noplaylist': True,
+        'quiet': True,
+        'cookiefile': 'cookies.txt',  # Optional (if needed)
+        'retries': 5
+    }
 
     try:
-        # Fake smooth progress effect
-        for i in range(1, 6):
-            time.sleep(0.5)
-            bot.edit_message_text(
-                f"📥 Downloading... {i*20}%",
-                chat_id,
-                status.message_id
-            )
-
-        ydl_opts = {
-            'format': format_option,
-            'outtmpl': file_name,
-            'noplaylist': True,
-            'quiet': True,
-            'socket_timeout': 25,
-            'retries': 3
-        }
-
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
 
-        # 50MB limit protection
-        if os.path.getsize(file_name) > 49 * 1024 * 1024:
-            os.remove(file_name)
-            bot.send_message(chat_id, "❌ Video 50MB এর বেশি")
-            return
-
-        bot.edit_message_text("📤 Upload হচ্ছে...", chat_id, status.message_id)
+        bot.edit_message_text(
+            "📤 Uploading...",
+            chat_id,
+            message_id
+        )
 
         with open(file_name, "rb") as video:
             bot.send_video(chat_id, video)
 
         os.remove(file_name)
 
-        bot.send_message(chat_id, "✅ Done! Enjoy 🎉")
+        bot.edit_message_text(
+            "✅ Completed.",
+            chat_id,
+            message_id
+        )
 
     except Exception as e:
-        print(e)
-        bot.send_message(chat_id, "❌ Download failed (private / blocked / large file)")
+        bot.edit_message_text(
+            "❌ Download failed.",
+            chat_id,
+            message_id
+        )
 
-# ---------------- RUN ----------------
-bot.infinity_polling(timeout=60, long_polling_timeout=60, skip_pending=True)
+# ================= RUN =================
+bot.infinity_polling(timeout=60, long_polling_timeout=60)
