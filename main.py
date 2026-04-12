@@ -17,7 +17,7 @@ def download_video(url):
         return filename
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Send video link 🙂")
+    await update.message.reply_text("Send videgffcck 🙂")
 
 async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text
