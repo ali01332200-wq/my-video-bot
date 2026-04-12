@@ -8,6 +8,9 @@ bot = telebot.TeleBot(TOKEN)
 
 user_data = {}
 
+# progress store
+progress_msg = {}
+
 @bot.message_handler(commands=['start'])
 def start(message):
     bot.reply_to(message, "Send a video link 🎥")
@@ -27,12 +30,10 @@ def get_url(message):
 
     bot.send_message(chat_id, f"Confirm download?\n{url}", reply_markup=markup)
 
+
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
     chat_id = call.message.chat.id
-
-    # গুরুত্বপূর্ণ: callback answer দিতে হবে
-    bot.answer_callback_query(call.id)
 
     if call.data == "no":
         bot.send_message(chat_id, "Cancelled ❌")
@@ -45,13 +46,40 @@ def callback(call):
 
     file_name = f"video_{chat_id}.mp4"
 
-    bot.send_message(chat_id, "Downloading... ⏳")
+    msg = bot.send_message(chat_id, "Starting download... ⏳")
+    progress_msg[chat_id] = msg.message_id
+
+    def progress_hook(d):
+        if d['status'] == 'downloading':
+            percent = d.get('_percent_str', '0%')
+            speed = d.get('_speed_str', '')
+            text = f"Downloading...\n{percent}\n{speed}"
+
+            try:
+                bot.edit_message_text(
+                    text,
+                    chat_id,
+                    progress_msg[chat_id]
+                )
+            except:
+                pass
+
+        elif d['status'] == 'finished':
+            try:
+                bot.edit_message_text(
+                    "Download finished ✔️\nUploading...",
+                    chat_id,
+                    progress_msg[chat_id]
+                )
+            except:
+                pass
 
     ydl_opts = {
         'format': 'best',
         'outtmpl': file_name,
         'noplaylist': True,
-        'quiet': True
+        'quiet': True,
+        'progress_hooks': [progress_hook]
     }
 
     try:
@@ -63,7 +91,17 @@ def callback(call):
 
         os.remove(file_name)
 
-    except Exception as e:
-        bot.send_message(chat_id, f"Download failed ❌\n{e}")
+        bot.edit_message_text(
+            "Done ✅ Uploaded!",
+            chat_id,
+            progress_msg[chat_id]
+        )
 
-bot.infinity_polling(timeout=60, long_polling_timeout=60)
+    except Exception as e:
+        bot.edit_message_text(
+            "Download failed ❌",
+            chat_id,
+            progress_msg[chat_id]
+        )
+
+bot.infinity_polling()
