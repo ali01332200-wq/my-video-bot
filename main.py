@@ -1,7 +1,6 @@
 import telebot
 import yt_dlp
 import os
-import time
 from telebot import types
 
 TOKEN = os.getenv("BOT_TOKEN")
@@ -20,18 +19,6 @@ def get_url(message):
 
     user_data[chat_id] = url
 
-    # 😄 Funny slow messages
-    bot.send_message(chat_id, "🤔 URL detect korchi...")
-    time.sleep(1.5)
-
-    bot.send_message(chat_id, "🧠 Brain processing link...")
-    time.sleep(1.5)
-
-    bot.send_message(chat_id, "😂 Wait... internet er sathe kotha bolchi...")
-    time.sleep(1.5)
-
-    bot.send_message(chat_id, "⚡ Almost ready to download!")
-
     markup = types.InlineKeyboardMarkup()
     markup.add(
         types.InlineKeyboardButton("✔ Yes", callback_data="yes"),
@@ -39,7 +26,6 @@ def get_url(message):
     )
 
     bot.send_message(chat_id, f"Confirm download?\n{url}", reply_markup=markup)
-
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
@@ -70,15 +56,10 @@ def callback(call):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
 
-        bot.send_message(chat_id, "Uploading video... 📤")
-        time.sleep(1)
-
         with open(file_name, "rb") as video:
             bot.send_video(chat_id, video)
 
         os.remove(file_name)
-
-        bot.send_message(chat_id, "Done ✅ Enjoy!")
 
     except Exception as e:
         bot.send_message(chat_id, "Download failed ❌")
