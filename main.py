@@ -44,7 +44,7 @@ def get_url(message):
 
     markup = types.InlineKeyboardMarkup()
     markup.add(
-        types.InlineKeyboardButton("✔ Continue", callback_data="continue"),
+        types.InlineKeyboardButton("✔ Download শুরু করো", callback_data="download"),
         types.InlineKeyboardButton("❌ Cancel", callback_data="cancel")
     )
 
@@ -54,59 +54,24 @@ def get_url(message):
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
     chat_id = call.message.chat.id
-    url = user_data.get(chat_id)
 
     if call.data == "cancel":
         bot.send_message(chat_id, "❌ Cancel করা হয়েছে")
         return
 
+    url = user_data.get(chat_id)
+
     if not url:
         bot.send_message(chat_id, "❌ Link পাওয়া যায়নি")
         return
 
-    is_youtube = "youtube.com" in url or "youtu.be" in url
-
-    # ---------- CONTINUE ----------
-    if call.data == "continue":
-
-        if is_youtube:
-            markup = types.InlineKeyboardMarkup()
-            markup.add(
-                types.InlineKeyboardButton("360p", callback_data="q_360"),
-                types.InlineKeyboardButton("720p", callback_data="q_720"),
-                types.InlineKeyboardButton("1080p", callback_data="q_1080")
-            )
-
-            bot.send_message(chat_id, "🎥 YouTube detected!\nQuality select করো:", reply_markup=markup)
-        else:
-            download(chat_id, url, "best")
-
-    # ---------- QUALITY ----------
-    if call.data.startswith("q_"):
-        quality = call.data.split("_")[1]
-        download(chat_id, url, quality)
-
-# ---------- DOWNLOAD FUNCTION ----------
-def download(chat_id, url, quality):
     file_name = f"video_{chat_id}.mp4"
 
-    status = bot.send_message(chat_id, "📡 Processing...")
-
-    # ---------- FORMAT FIX ----------
-    if quality == "best":
-        format_option = "bestvideo+bestaudio/best"
-    elif quality == "360":
-        format_option = "bestvideo[height<=360]+bestaudio/best[height<=360]"
-    elif quality == "720":
-        format_option = "bestvideo[height<=720]+bestaudio/best[height<=720]"
-    elif quality == "1080":
-        format_option = "bestvideo[height<=1080]+bestaudio/best[height<=1080]"
-    else:
-        format_option = "best"
+    status = bot.send_message(chat_id, "📡 Download শুরু হচ্ছে...")
 
     try:
         ydl_opts = {
-            'format': format_option,
+            'format': 'best',
             'outtmpl': file_name,
             'noplaylist': True,
             'quiet': True,
