@@ -30,7 +30,7 @@ def start(message):
     bot.send_message(message.chat.id, "⏳ সিস্টেম চালু হচ্ছে...")
     bot.send_message(message.chat.id, random.choice(greetings))
 
-# ---------- URL HANDLER ----------
+# ---------- URL ----------
 @bot.message_handler(func=lambda message: True)
 def get_url(message):
     chat_id = message.chat.id
@@ -44,58 +44,77 @@ def get_url(message):
 
     markup = types.InlineKeyboardMarkup()
     markup.add(
-        types.InlineKeyboardButton("✔ Download শুরু করো", callback_data="start"),
-        types.InlineKeyboardButton("❌ Cancel", callback_data="no")
+        types.InlineKeyboardButton("✔ Continue", callback_data="continue"),
+        types.InlineKeyboardButton("❌ Cancel", callback_data="cancel")
     )
 
-    bot.send_message(chat_id, f"🔗 Link পাওয়া গেছে:\n{url}\n\nকি করতে চাও?", reply_markup=markup)
+    bot.send_message(chat_id, f"🔗 Link পাওয়া গেছে:\n{url}", reply_markup=markup)
 
 # ---------- CALLBACK ----------
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
     chat_id = call.message.chat.id
+    url = user_data.get(chat_id)
 
-    if call.data == "no":
+    if call.data == "cancel":
         bot.send_message(chat_id, "❌ Cancel করা হয়েছে")
         return
 
-    url = user_data.get(chat_id)
-
     if not url:
-        bot.send_message(chat_id, "❌ কোনো link পাওয়া যায়নি")
-        return
-# ---------- DOWNLOAD ----------
-@bot.callback_query_handler(func=lambda call: call.data in ["360", "720", "1080"])
-def download(call):
-    chat_id = call.message.chat.id
-    quality = call.data
-
-    url = user_data.get(chat_id)
-
-    if not url:
-        bot.send_message(chat_id, "❌ Link missing")
+        bot.send_message(chat_id, "❌ Link পাওয়া যায়নি")
         return
 
+    # ---------- YOUTUBE CHECK ----------
+    is_youtube = "youtube.com" in url or "youtu.be" in url
+
+    # ---------- CONTINUE ----------
+    if call.data == "continue":
+
+        if is_youtube:
+            markup = types.InlineKeyboardMarkup()
+            markup.add(
+                types.InlineKeyboardButton("360p", callback_data="q_360"),
+                types.InlineKeyboardButton("720p", callback_data="q_720"),
+                types.InlineKeyboardButton("1080p", callback_data="q_1080")
+            )
+
+            bot.send_message(chat_id, "🎥 YouTube detected!\nQuality select করো:", reply_markup=markup)
+        else:
+            download_video(chat_id, url, "best")
+
+    # ---------- QUALITY DOWNLOAD ----------
+    if call.data.startswith("q_"):
+        quality = call.data.split("_")[1]
+        download_video(chat_id, url, quality)
+
+# ---------- DOWNLOAD FUNCTION ----------
+def download_video(chat_id, url, quality):
     file_name = f"video_{chat_id}.mp4"
 
-    status = bot.send_message(chat_id, "📡 Server connect করা হচ্ছে...")
+    status = bot.send_message(chat_id, "📡 Download শুরু হচ্ছে...")
 
     try:
-        bot.edit_message_text("🔍 Link detect করা হচ্ছে...", chat_id, status.message_id)
-
-        ydl_opts = {
-            'format': f'best[height<={quality}]',
-            'outtmpl': file_name,
-            'noplaylist': True,
-            'quiet': True
-        }
+        if quality == "best":
+            ydl_opts = {
+                'format': 'best',
+                'outtmpl': file_name,
+                'noplaylist': True,
+                'quiet': True
+            }
+        else:
+            ydl_opts = {
+                'format': f'best[height<={quality}]',
+                'outtmpl': file_name,
+                'noplaylist': True,
+                'quiet': True
+            }
 
         bot.edit_message_text("📥 Download হচ্ছে...", chat_id, status.message_id)
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
 
-        bot.edit_message_text("📤 Telegram এ পাঠানো হচ্ছে...", chat_id, status.message_id)
+        bot.edit_message_text("📤 Upload হচ্ছে...", chat_id, status.message_id)
 
         with open(file_name, "rb") as video:
             bot.send_video(chat_id, video)
