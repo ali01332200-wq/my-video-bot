@@ -1,46 +1,47 @@
 import telebot
 import yt_dlp
 import os
+import time
 from telebot import types
 
 TOKEN = os.getenv("8675679641:AAGvnIc2t767rcS7Cj6m49MmVDgTWSJVfC0")
-
-if not TOKEN:
-    print("BOT_TOKEN missing")
-    exit()
-
 bot = telebot.TeleBot(TOKEN)
 
 user_data = {}
 
-# ---------- START ----------
+# ---------- WELCOME ----------
 @bot.message_handler(commands=['start'])
 def start(message):
-    name = message.from_user.first_name
+    chat_id = message.chat.id
 
-    text = f"👋 Welcome {name}!\n\n📥 Send me any video link\n🎥 YouTube / TikTok / Facebook / Instagram"
+    text = "👋 Welcome to Video Downloader Bot!\n\n📥 Send me any video link\n🎥 YouTube / TikTok / Facebook / Instagram"
 
-    bot.send_message(message.chat.id, "⏳ Loading...")
-    bot.send_message(message.chat.id, text)
-# ---------- URL HANDLER ----------
+    bot.send_message(chat_id, "⏳ Loading bot...")
+    time.sleep(1)
+    bot.send_message(chat_id, text)
+
+# ---------- GET URL ----------
 @bot.message_handler(func=lambda message: True)
 def get_url(message):
     chat_id = message.chat.id
     url = message.text.strip()
 
     if "http" not in url:
-        bot.reply_to(message, "😂 এটা valid link না ভাই!")
+        bot.reply_to(message, "😂 এটা link না ভাই! সঠিক link দাও")
         return
 
     user_data[chat_id] = url
 
+    # FUN MESSAGE
+    bot.send_message(chat_id, "😎 Wow! Hacker mode activated...\n🔍 Link scanning...")
+
     markup = types.InlineKeyboardMarkup()
     markup.add(
-        types.InlineKeyboardButton("✔ Download শুরু করো", callback_data="start"),
+        types.InlineKeyboardButton("✔ Start Download", callback_data="start"),
         types.InlineKeyboardButton("❌ Cancel", callback_data="no")
     )
 
-    bot.send_message(chat_id, f"🔗 Link পাওয়া গেছে:\n{url}\n\nকি করতে চাও?", reply_markup=markup)
+    bot.send_message(chat_id, "👇 Confirm download?", reply_markup=markup)
 
 # ---------- CALLBACK ----------
 @bot.callback_query_handler(func=lambda call: True)
@@ -48,57 +49,38 @@ def callback(call):
     chat_id = call.message.chat.id
 
     if call.data == "no":
-        bot.send_message(chat_id, "❌ Cancel করা হয়েছে")
+        bot.send_message(chat_id, "❌ Cancelled by user")
         return
 
     url = user_data.get(chat_id)
 
     if not url:
-        bot.send_message(chat_id, "❌ কোনো link পাওয়া যায়নি")
-        return
-
-    # QUALITY SELECT
-    markup = types.InlineKeyboardMarkup()
-    markup.add(
-        types.InlineKeyboardButton("360p", callback_data="360"),
-        types.InlineKeyboardButton("720p", callback_data="720"),
-        types.InlineKeyboardButton("1080p", callback_data="1080")
-    )
-
-    bot.send_message(chat_id, "🎥 Quality select করো:", reply_markup=markup)
-
-# ---------- DOWNLOAD ----------
-@bot.callback_query_handler(func=lambda call: call.data in ["360", "720", "1080"])
-def download(call):
-    chat_id = call.message.chat.id
-    quality = call.data
-
-    url = user_data.get(chat_id)
-
-    if not url:
-        bot.send_message(chat_id, "❌ Link missing")
+        bot.send_message(chat_id, "❌ No URL found")
         return
 
     file_name = f"video_{chat_id}.mp4"
 
-    status = bot.send_message(chat_id, "📡 Server connect করা হচ্ছে...")
+    # PROGRESS STYLE UI
+    status = bot.send_message(chat_id, "📡 Connecting to server...")
+
+    time.sleep(1)
+    bot.edit_message_text("🔍 Detecting platform...", chat_id, status.message_id)
+
+    time.sleep(1)
+    bot.edit_message_text("📥 Downloading video... 10%", chat_id, status.message_id)
+
+    ydl_opts = {
+        'format': 'best',
+        'outtmpl': file_name,
+        'noplaylist': True,
+        'quiet': True
+    }
 
     try:
-        bot.edit_message_text("🔍 Link detect করা হচ্ছে...", chat_id, status.message_id)
-
-        ydl_opts = {
-            'format': f'best[height<={quality}]',
-            'outtmpl': file_name,
-            'noplaylist': True,
-            'quiet': True
-        }
-
-        bot.edit_message_text("📥 Download হচ্ছে...", chat_id, status.message_id)
-
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
 
-        bot.edit_message_text("📤 Telegram এ পাঠানো হচ্ছে...", chat_id, status.message_id)
+        bot.edit_message_text("📤 Uploading to Telegram... 90%", chat_id, status.message_id)
 
         with open(file_name, "rb") as video:
             bot.send_video(chat_id, video)
@@ -110,5 +92,4 @@ def download(call):
     except:
         bot.send_message(chat_id, "❌ Download failed")
 
-# ---------- RUN ----------
 bot.infinity_polling(timeout=60, long_polling_timeout=60, skip_pending=True)
