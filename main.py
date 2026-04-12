@@ -64,17 +64,6 @@ def callback(call):
     if not url:
         bot.send_message(chat_id, "❌ কোনো link পাওয়া যায়নি")
         return
-
-    # QUALITY SELECT
-    markup = types.InlineKeyboardMarkup()
-    markup.add(
-        types.InlineKeyboardButton("360p", callback_data="360"),
-        types.InlineKeyboardButton("720p", callback_data="720"),
-        types.InlineKeyboardButton("1080p", callback_data="1080")
-    )
-
-    bot.send_message(chat_id, "🎥 Quality select করো:", reply_markup=markup)
-
 # ---------- DOWNLOAD ----------
 @bot.callback_query_handler(func=lambda call: call.data in ["360", "720", "1080"])
 def download(call):
