@@ -1,7 +1,6 @@
 import telebot
 import yt_dlp
 import os
-import random
 from telebot import types
 
 TOKEN = os.getenv("8675679641:AAGvnIc2t767rcS7Cj6m49MmVDgTWSJVfC0")
@@ -19,17 +18,10 @@ user_data = {}
 def start(message):
     name = message.from_user.first_name
 
-    greetings = [
-        f"👋 হ্যালো {name}! ভিডিও ডাউনলোড করতে ready তো? 🎥",
-        f"😂 ওহে {name}! আমি এখন তোমার জন্য অনলাইন হয়ে গেছি!",
-        f"🔥 {name}, তুমি এখন downloader power unlock করছো!",
-        f"😎 কি খবর {name}! একটা link দাও দেখি!",
-        f"🚀 Welcome {name}! চল ভিডিও নামানো শুরু করি!"
-    ]
+    text = f"👋 Welcome {name}!\n\n📥 Send me any video link\n🎥 YouTube / TikTok / Facebook / Instagram"
 
-    bot.send_message(message.chat.id, "⏳ সিস্টেম চালু হচ্ছে...")
-    bot.send_message(message.chat.id, random.choice(greetings))
-
+    bot.send_message(message.chat.id, "⏳ Loading...")
+    bot.send_message(message.chat.id, text)
 # ---------- URL HANDLER ----------
 @bot.message_handler(func=lambda message: True)
 def get_url(message):
