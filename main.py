@@ -1,67 +1,41 @@
-import telebot
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 import yt_dlp
 import os
-from telebot import types
 
-TOKEN = os.getenv("BOT_TOKEN")
-bot = telebot.TeleBot(TOKEN)
+TOKEN = "YOUR_BOT_TOKEN"
 
-user_data = {}
-
-@bot.message_handler(commands=['start'])
-def start(message):
-    bot.reply_to(message, "Send a video link 🎥")
-
-@bot.message_handler(func=lambda message: True)
-def get_url(message):
-    chat_id = message.chat.id
-    url = message.text.strip()
-
-    user_data[chat_id] = url
-
-    markup = types.InlineKeyboardMarkup()
-    markup.add(
-        types.InlineKeyboardButton("✔ Yes", callback_data="yes"),
-        types.InlineKeyboardButton("❌ No", callback_data="no")
-    )
-
-    bot.send_message(chat_id, f"Confirm download?\n{url}", reply_markup=markup)
-
-@bot.callback_query_handler(func=lambda call: True)
-def callback(call):
-    chat_id = call.message.chat.id
-
-    if call.data == "no":
-        bot.send_message(chat_id, "Cancelled ❌")
-        return
-
-    url = user_data.get(chat_id)
-
-    if not url:
-        bot.send_message(chat_id, "No URL found ❌")
-        return
-
-    file_name = f"video_{chat_id}.mp4"
-
-    bot.send_message(chat_id, "Downloading... ⏳")
-
+def download_video(url):
     ydl_opts = {
         'format': 'best',
-        'outtmpl': file_name,
-        'noplaylist': True,
-        'quiet': True
+        'outtmpl': 'video.%(ext)s'
     }
 
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url, download=True)
+        filename = ydl.prepare_filename(info)
+        return filename
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Send video link 🙂")
+
+async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    url = update.message.text
+    await update.message.reply_text("Downloading... ⏳")
+
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
+        file_path = download_video(url)
 
-        with open(file_name, "rb") as video:
-            bot.send_video(chat_id, video)
+        await update.message.reply_video(video=open(file_path, "rb"))
 
-        os.remove(file_name)
+        os.remove(file_path)
 
     except Exception as e:
-        bot.send_message(chat_id, "Download failed ❌")
+        await update.message.reply_text(f"Error ❌ {e}")
 
-bot.infinity_polling(timeout=60, long_polling_timeout=60)
+app = ApplicationBuilder().token(TOKEN).build()
+
+app.add_handler(CommandHandler("start", start))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle))
+
+app.run_polling()
