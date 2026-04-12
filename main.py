@@ -4,7 +4,7 @@ import os
 import random
 from telebot import types
 
-TOKEN = os.getenv("8675679641:AAGvnIc2t767rcS7Cj6m49MmVDgTWSJVfC0")
+TOKEN = os.getenv("Your_Token")
 
 if not TOKEN:
     print("BOT_TOKEN missing")
