@@ -1,4 +1,5 @@
 import telebot
+import random
 import yt_dlp
 import os
 import time
@@ -12,13 +13,20 @@ user_data = {}
 # ---------- WELCOME ----------
 @bot.message_handler(commands=['start'])
 def start(message):
-    chat_id = message.chat.id
+    name = message.from_user.first_name
 
-    text = "👋 Welcome to Video Downloader Bot!\n\n📥 Send me any video link\n🎥 YouTube / TikTok / Facebook / Instagram"
+    greetings = [
+        f"👋 হ্যালো {name}! ভিডিও ডাউনলোড করতে ready তো? 🎥",
+        f"😂 ওহে {name}! আমি এখন তোমার জন্য অনলাইন হয়ে গেছি!",
+        f"🔥 {name}, তুমি এখন downloader power unlock করছো!",
+        f"😎 কি খবর {name}! একটা link দাও দেখি!",
+        f"🚀 Welcome {name}! চল ভিডিও নামানো শুরু করি!"
+    ]
 
-    bot.send_message(chat_id, "⏳ Loading bot...")
-    time.sleep(1)
-    bot.send_message(chat_id, text)
+    text = random.choice(greetings) + "\n\n📥 যেকোনো ভিডিও link পাঠাও\n🎥 YouTube / TikTok / Facebook / Instagram"
+
+    bot.send_message(message.chat.id, "⏳ সিস্টেম চালু হচ্ছে...")
+    bot.send_message(message.chat.id, text)
 
 # ---------- GET URL ----------
 @bot.message_handler(func=lambda message: True)
