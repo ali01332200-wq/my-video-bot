@@ -2,7 +2,7 @@ import telebot
 import yt_dlp
 import os
 
-TOKEN = "YOUR_BOT_TOKEN"   # ⚠️ এখানে direct token দাও
+TOKEN = "YOUR_BOT_TOKEN"
 bot = telebot.TeleBot(TOKEN)
 
 user_data = {}
@@ -14,9 +14,7 @@ def start(message):
 @bot.message_handler(func=lambda message: True)
 def get_url(message):
     chat_id = message.chat.id
-    url = message.text.strip()
-
-    user_data[chat_id] = url
+    user_data[chat_id] = message.text.strip()
 
     markup = telebot.types.InlineKeyboardMarkup()
     markup.add(
@@ -24,18 +22,16 @@ def get_url(message):
         telebot.types.InlineKeyboardButton("❌ No", callback_data="no")
     )
 
-    bot.send_message(chat_id, f"Confirm download?\n{url}", reply_markup=markup)
+    bot.send_message(chat_id, "Confirm download?", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
     chat_id = call.message.chat.id
-    data = call.data
+    url = user_data.get(chat_id)
 
-    if data == "no":
+    if call.data == "no":
         bot.send_message(chat_id, "Cancelled ❌")
         return
-
-    url = user_data.get(chat_id)
 
     if not url:
         bot.send_message(chat_id, "No URL found ❌")
@@ -43,24 +39,27 @@ def callback(call):
 
     bot.send_message(chat_id, "Downloading... ⏳")
 
+    file_name = f"video_{chat_id}.mp4"
+
     ydl_opts = {
-        'format': 'best',
-        'outtmpl': f'video_{chat_id}.%(ext)s',  # ⭐ IMPORTANT FIX
+        'format': 'bestvideo+bestaudio/best',   # ⭐ better quality
+        'outtmpl': file_name,
+        'merge_output_format': 'mp4',          # ⭐ force mp4
         'noplaylist': True,
         'quiet': True
     }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            file_path = ydl.prepare_filename(info)
+            ydl.download([url])
 
-        with open(file_path, "rb") as video:
-            bot.send_video(chat_id, video)
+        # ⭐ IMPORTANT: send as document (more stable)
+        with open(file_name, "rb") as video:
+            bot.send_document(chat_id, video)
 
-        os.remove(file_path)
+        os.remove(file_name)
 
     except Exception as e:
-        bot.send_message(chat_id, f"Download failed ❌\n{e}")
+        bot.send_message(chat_id, f"Error ❌\n{e}")
 
-bot.infinity_polling(timeout=60, long_polling_timeout=60)
+bot.infinity_polling()
