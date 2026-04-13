@@ -1,72 +1,60 @@
 import telebot
-import yt_dlp
-import re
+import requests
 import os
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 TOKEN = os.getenv("BOT_TOKEN")
 bot = telebot.TeleBot(TOKEN)
 
-user_data = {}
+# ⚠️ এখানে তোমাকে working terabox extractor API বসাতে হবে
+API_BASE = "https://your-terabox-api.com"
+
+def is_terabox(url):
+    return "terabox" in url.lower()
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.reply_to(message, "🎥 Send me a video link and I will download it automatically!")
-
-def is_youtube(url):
-    youtube_patterns = [
-        r"youtube\.com",
-        r"youtu\.be"
-    ]
-    for pattern in youtube_patterns:
-        if re.search(pattern, url.lower()):
-            return True
-    return False
-
+    bot.reply_to(message, "📥 Terabox link পাঠান")
 
 @bot.message_handler(func=lambda message: True)
-def get_url(message):
+def handle_link(message):
     chat_id = message.chat.id
     url = message.text.strip()
 
-    if not url.startswith("http"):
-        bot.send_message(chat_id, "❌ Please send a valid video URL")
+    if not is_terabox(url):
+        bot.send_message(chat_id, "❌ Valid Terabox link দিন")
         return
 
-    # 🔥 YouTube block
-    if is_youtube(url):
-        bot.send_message(
-            chat_id,
-            "⚠️ বর্তমানে সার্ভার সমস্যা কারনে\n"
-            "Youtube সেবাটি বন্ধ আছে।\n\n"
-            "শুধু Instagram, Facebook, TikTok ভিডিও নামাতে পারবেন।"
-        )
-        return
-
-    bot.send_message(chat_id, "🎥 Link received ✔️\nDownloading started... ⏳")
-
-    file_name = f"video_{chat_id}.mp4"
-
-    ydl_opts = {
-        'format': 'best',
-        'outtmpl': file_name,
-        'noplaylist': True,
-        'quiet': True
-    }
+    bot.send_message(chat_id, "🔄 Folder পড়া হচ্ছে...")
 
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
+        # 🔥 Folder list API call
+        res = requests.get(f"{API_BASE}/list?url={url}").json()
+        files = res.get("files", [])
 
-        bot.send_message(chat_id, "📤 Uploading video...")
+        if not files:
+            bot.send_message(chat_id, "❌ কোনো ফাইল পাওয়া যায়নি")
+            return
 
-        with open(file_name, "rb") as video:
-            bot.send_video(chat_id, video)
+        markup = InlineKeyboardMarkup()
 
-        os.remove(file_name)
+        for file in files:
+            btn = InlineKeyboardButton(
+                text=file["name"],
+                callback_data=file["download_url"]
+            )
+            markup.add(btn)
 
-        bot.send_message(chat_id, "✅ Done!")
+        bot.send_message(chat_id, "📂 ফাইল সিলেক্ট করুন:", reply_markup=markup)
 
-    except Exception:
-        bot.send_message(chat_id, "❌ Download failed")
+    except:
+        bot.send_message(chat_id, "❌ Error হয়েছে")
 
-bot.infinity_polling(timeout=60, long_polling_timeout=60)
+@bot.callback_query_handler(func=lambda call: True)
+def send_download(call):
+    bot.send_message(
+        call.message.chat.id,
+        f"📥 Download Link:\n{call.data}"
+    )
+
+bot.infinity_polling()
