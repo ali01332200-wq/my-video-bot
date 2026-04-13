@@ -1,5 +1,6 @@
 import telebot
 import yt_dlp
+import re
 import os
 
 TOKEN = os.getenv("BOT_TOKEN")
@@ -11,6 +12,17 @@ user_data = {}
 def start(message):
     bot.reply_to(message, "🎥 Send me a video link and I will download it automatically!")
 
+def is_youtube(url):
+    youtube_patterns = [
+        r"youtube\.com",
+        r"youtu\.be"
+    ]
+    for pattern in youtube_patterns:
+        if re.search(pattern, url.lower()):
+            return True
+    return False
+
+
 @bot.message_handler(func=lambda message: True)
 def get_url(message):
     chat_id = message.chat.id
@@ -20,7 +32,15 @@ def get_url(message):
         bot.send_message(chat_id, "❌ Please send a valid video URL")
         return
 
-    user_data[chat_id] = url
+    # 🔥 YouTube block
+    if is_youtube(url):
+        bot.send_message(
+            chat_id,
+            "⚠️ বর্তমানে সার্ভার সমস্যা কারনে\n"
+            "এই সেবাটি বন্ধ আছে।\n\n"
+            "শুধু Instagram, Facebook, TikTok ভিডিও নামাতে পারবেন।"
+        )
+        return
 
     bot.send_message(chat_id, "🎥 Link received ✔️\nDownloading started... ⏳")
 
@@ -46,7 +66,7 @@ def get_url(message):
 
         bot.send_message(chat_id, "✅ Done!")
 
-    except Exception as e:
+    except Exception:
         bot.send_message(chat_id, "❌ Download failed")
 
 bot.infinity_polling(timeout=60, long_polling_timeout=60)
