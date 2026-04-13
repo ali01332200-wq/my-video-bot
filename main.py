@@ -37,7 +37,7 @@ def get_url(message):
         bot.send_message(
             chat_id,
             "⚠️ বর্তমানে সার্ভার সমস্যা কারনে\n"
-            "এই সেবাটি বন্ধ আছে।\n\n"
+            "Youtube সেবাটি বন্ধ আছে।\n\n"
             "শুধু Instagram, Facebook, TikTok ভিডিও নামাতে পারবেন।"
         )
         return
