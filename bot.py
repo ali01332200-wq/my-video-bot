@@ -1,72 +1,42 @@
 import telebot
-import yt_dlp
-import re
+from rembg import remove
+from PIL import Image
 import os
 
 TOKEN = os.getenv("BOT_TOKEN")
 bot = telebot.TeleBot(TOKEN)
 
-user_data = {}
-
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.reply_to(message, "🎥 Send me a video link and I will download it automatically!")
+    bot.send_message(message.chat.id, "Send a photo 🖼️")
 
-def is_youtube(url):
-    youtube_patterns = [
-        r"youtube\.com",
-        r"youtu\.be"
-    ]
-    for pattern in youtube_patterns:
-        if re.search(pattern, url.lower()):
-            return True
-    return False
-
-
-@bot.message_handler(func=lambda message: True)
-def get_url(message):
+@bot.message_handler(content_types=['photo'])
+def handle_photo(message):
     chat_id = message.chat.id
-    url = message.text.strip()
 
-    if not url.startswith("http"):
-        bot.send_message(chat_id, "❌ Please send a valid video URL")
-        return
+    file_info = bot.get_file(message.photo[-1].file_id)
+    downloaded_file = bot.download_file(file_info.file_path)
 
-    # 🔥 YouTube block
-    if is_youtube(url):
-        bot.send_message(
-            chat_id,
-            "⚠️ বর্তমানে সার্ভার সমস্যা কারনে\n"
-            "Youtube সেবাটি বন্ধ আছে।\n\n"
-            "শুধু Instagram, Facebook, TikTok ভিডিও নামাতে পারবেন।"
-        )
-        return
+    input_path = "input.png"
+    output_path = "output.png"
 
-    bot.send_message(chat_id, "🎥 Link received ✔️\nDownloading started... ⏳")
+    with open(input_path, "wb") as f:
+        f.write(downloaded_file)
 
-    file_name = f"video_{chat_id}.mp4"
-
-    ydl_opts = {
-        'format': 'best',
-        'outtmpl': file_name,
-        'noplaylist': True,
-        'quiet': True
-    }
+    bot.send_message(chat_id, "Removing background... ⏳")
 
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
+        img = Image.open(input_path)
+        result = remove(img)
+        result.save(output_path)
 
-        bot.send_message(chat_id, "📤 Uploading video...")
+        with open(output_path, "rb") as f:
+            bot.send_document(chat_id, f)
 
-        with open(file_name, "rb") as video:
-            bot.send_video(chat_id, video)
+        os.remove(input_path)
+        os.remove(output_path)
 
-        os.remove(file_name)
+    except Exception as e:
+        bot.send_message(chat_id, f"Error ❌ {e}")
 
-        bot.send_message(chat_id, "✅ Done!")
-
-    except Exception:
-        bot.send_message(chat_id, "❌ Download failed")
-
-bot.infinity_polling(timeout=60, long_polling_timeout=60)
+bot.infinity_polling()
